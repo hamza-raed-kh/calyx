@@ -22,7 +22,38 @@ import '../persistence.dart';
 ///
 /// Those come from the reverse proxy (see ops/Caddyfile), not from Flutter, so
 /// a missing header shows up here as a downgraded tier.
+/// How long to wait for the browser to hand over a database before giving up.
+///
+/// WasmDatabase.open() can simply never settle -- a worker that fails to start,
+/// or a storage backend waiting on something that never arrives. Awaiting that
+/// forever is indistinguishable from a frozen tab and leaves nothing on screen
+/// to explain why. There is no useful fallback on the web (WASM SQLite is the
+/// only SQLite there), so the honest move is to fail quickly and say so.
+const _openTimeout = Duration(seconds: 8);
+
+class StorageUnavailable implements Exception {
+  StorageUnavailable(this.detail);
+
+  final String detail;
+
+  @override
+  String toString() =>
+      'This browser did not provide local storage within '
+      '${_openTimeout.inSeconds}s. calyx keeps everything in a local database, '
+      'so it cannot start without one.\n\n$detail';
+}
+
 Future<OpenedDatabase> openDatabase() async {
+  try {
+    return await _openWasm().timeout(_openTimeout);
+  } on StorageUnavailable {
+    rethrow;
+  } on Object catch (error) {
+    throw StorageUnavailable('$error');
+  }
+}
+
+Future<OpenedDatabase> _openWasm() async {
   final result = await WasmDatabase.open(
     databaseName: 'tasks',
     sqlite3Uri: Uri.parse('sqlite3.wasm'),

@@ -27,6 +27,7 @@ class PersistenceReport {
     this.missingFeatures = const [],
     this.storagePersisted,
     this.crossTabSafe = true,
+    this.detail = '',
   });
 
   final PersistenceTier tier;
@@ -44,6 +45,10 @@ class PersistenceReport {
 
   /// False for `unsafeIndexedDb`, where two open tabs can corrupt each other.
   final bool crossTabSafe;
+
+  /// Why storage is unavailable, when it is. Surfaced in Settings, because a
+  /// browser that cannot give us a database is otherwise a silent failure.
+  final String detail;
 
   bool get acceptsOfflineWrites => tier != PersistenceTier.ephemeral;
 

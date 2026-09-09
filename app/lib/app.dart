@@ -77,7 +77,14 @@ class _Fatal extends StatelessWidget {
             children: [
               const Icon(Icons.storage, color: DarkPalette.danger, size: 40),
               const SizedBox(height: Spacing.md),
-              const Text('The local database could not be opened.'),
+              const Text('Local storage is unavailable.'),
+              const SizedBox(height: Spacing.sm),
+              const Text(
+                'Private browsing, or blocked site data, will do this. '
+                'Try a normal window and allow this site to store data.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: DarkPalette.textMuted, fontSize: 12),
+              ),
               const SizedBox(height: Spacing.sm),
               Text(
                 error,
