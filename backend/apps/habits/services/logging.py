@@ -73,6 +73,7 @@ def record(
     occurred_at: datetime | None = None,
     component=None,
     project=None,
+    project_id=None,
     value=None,
     unit: str = "",
     duration_seconds: int | None = None,
@@ -98,7 +99,7 @@ def record(
     status = classify(occurrence, occurred_at)
     habit = Habit.objects.get(key=occurrence.habit_key)
 
-    if habit.requires_project and project is None:
+    if habit.requires_project and project is None and project_id is None:
         raise ValidationError(f"habit {habit.key!r} requires a project")
 
     return HabitLog.objects.create(
@@ -110,6 +111,7 @@ def record(
         occurred_at=occurred_at or occurrence.window_start or occurrence.day_start,
         component=component,
         project=project,
+        project_id=project_id if project is None else None,
         value=value,
         unit=unit or occurrence.target_unit,
         duration_seconds=duration_seconds,
