@@ -103,21 +103,21 @@ def _agenda_for(day, generator, settings, now) -> dict:
     satisfied_count = sum(1 for row in expected if row["progress"]["satisfied"])
 
     return {
-            "habit_day": day,
-            "day_start": day_start,
-            "day_end": day_end,
-            "server_time": now,
-            "timezone": str(generator.tz_for(day)),
-            "backfill_floor": day - timedelta(days=settings.backfill_days),
-            "occurrences": sorted(today_rows, key=_sort_key),
-            "carryover": sorted(carryover_rows, key=_sort_key),
-            "flexible": flexible_rows,
-            "summary": {
-                "expected_slots": len(expected),
-                "satisfied_slots": satisfied_count,
-                "perfect": bool(expected) and satisfied_count == len(expected),
-            },
-        }
+        "habit_day": day,
+        "day_start": day_start,
+        "day_end": day_end,
+        "server_time": now,
+        "timezone": str(generator.tz_for(day)),
+        "backfill_floor": day - timedelta(days=settings.backfill_days),
+        "occurrences": sorted(today_rows, key=_sort_key),
+        "carryover": sorted(carryover_rows, key=_sort_key),
+        "flexible": flexible_rows,
+        "summary": {
+            "expected_slots": len(expected),
+            "satisfied_slots": satisfied_count,
+            "perfect": bool(expected) and satisfied_count == len(expected),
+        },
+    }
 
 
 @api_view(["POST"])

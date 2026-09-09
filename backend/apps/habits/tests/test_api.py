@@ -222,10 +222,7 @@ def test_horizon_expands_a_run_of_days(api, seeded):
 def test_horizon_carries_notification_times_so_the_device_need_not_compute_them(api, seeded):
     body = api.get(reverse("habits:horizon"), {"days": 2}).json()
     prayers = [
-        row
-        for day in body["days"]
-        for row in day["occurrences"]
-        if row["habit"]["key"] == "prayer"
+        row for day in body["days"] for row in day["occurrences"] if row["habit"]["key"] == "prayer"
     ]
     assert prayers and all(row["notify_at"] for row in prayers)
 
