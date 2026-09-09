@@ -171,19 +171,28 @@ HTTPS certificates for the tailnet in the Tailscale admin console.
 
 ## Connecting the app
 
-```sh
-make superuser
-docker compose -f ops/docker-compose.yml run --rm api \
-    python manage.py drf_create_token <username>
-```
+Open it and sign in. There is no token to mint and nothing to configure on the
+server first.
 
-- **Web** is served from the API's own origin, so it needs no configuration.
-- **Android and Linux** have no origin to be relative to: open Settings in the
-  app and set the API address to `https://tasks.<tailnet>.ts.net/api/v1` plus
-  the token above.
+A deployment with no accounts yet is **unclaimed**: it accepts exactly one
+registration regardless of `ALLOW_SIGNUPS`, so the owner can claim it from the
+app rather than SSHing in to run a management command. That account gets the
+Django admin, and the instance closes behind it — further registrations then
+follow `ALLOW_SIGNUPS`, which defaults to false.
 
-Signups are off unless `ALLOW_SIGNUPS=true`. Tailscale already provides device
-authentication, so the token is the second factor rather than the only one.
+The window this opens is small but real: someone who reaches a brand-new
+deployment before you could claim it. On a tailnet with nothing published that
+is close to theoretical, and it is the trade every self-hosted app of this shape
+makes. Register immediately after deploying.
+
+- **Web** is served from the API's own origin, so it needs no address at all.
+- **Android and Linux** have no origin to be relative to. Tap *Change server
+  address* on the sign-in screen and enter
+  `https://calyx.<tailnet>.ts.net/api/v1`.
+
+Settings shows who you are signed in as and can sign out, which revokes the
+token on the server rather than only forgetting it here — a token dropped from a
+device you no longer have is still a working credential.
 
 ## Reminders
 

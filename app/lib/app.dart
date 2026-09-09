@@ -5,6 +5,8 @@ import 'core/providers.dart';
 import 'core/router/router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/tokens.dart';
+import 'features/auth/auth_controller.dart';
+import 'features/auth/login_screen.dart';
 
 class TasksApp extends ConsumerWidget {
   const TasksApp({super.key});
@@ -23,8 +25,18 @@ class TasksApp extends ConsumerWidget {
       builder: (context, child) {
         return database.when(
           loading: () => const _Splash(),
-          error: (error, _) => _Fatal(error: '$error'),
-          data: (_) => child ?? const SizedBox.shrink(),
+          error: (error, _) => _Fatal(error: '\$error'),
+          // Sign-in gates the app because every screen is a view of synced
+          // data: without an account there is nothing to show.
+          data: (_) => ref
+              .watch(authControllerProvider)
+              .when(
+                loading: () => const _Splash(),
+                error: (error, _) => _Fatal(error: '\$error'),
+                data: (auth) => auth.isSignedIn
+                    ? (child ?? const SizedBox.shrink())
+                    : const LoginScreen(),
+              ),
         );
       },
     );

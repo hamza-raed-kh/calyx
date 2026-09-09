@@ -38,11 +38,15 @@ Future<OpenedDatabase> openDatabase() async {
     WasmStorageImplementation.inMemory => PersistenceTier.ephemeral,
   };
 
-  // Best-effort request that the browser not evict us under storage pressure.
-  // Never a guarantee, and deliberately not treated as one.
+  // QUERY the eviction-protection state; never request it here.
+  //
+  // persist() prompts the user on Firefox, and awaiting that prompt on the
+  // startup path blocks the database opening -- so the whole app hangs on a
+  // permission dialog nobody asked for. persisted() reports the same state and
+  // never prompts. Requesting it belongs behind an explicit action, if at all.
   bool? persisted;
   try {
-    persisted = await web.window.navigator.storage.persist().toDart.then(
+    persisted = await web.window.navigator.storage.persisted().toDart.then(
       (v) => v.toDart,
     );
   } catch (_) {

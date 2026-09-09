@@ -7,6 +7,7 @@ import '../../core/theme/glass_surface.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/db/persistence.dart';
 import '../../notifications/scheduler.dart';
+import '../auth/auth_controller.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -15,7 +16,6 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final persistence = ref.watch(persistenceProvider);
     final sync = ref.watch(syncControllerProvider);
-    final config = ref.watch(apiConfigProvider);
     final deadLetters = ref.watch(deadLettersProvider);
 
     return AppPage(
@@ -23,41 +23,38 @@ class SettingsScreen extends ConsumerWidget {
       child: SliverList.list(
         children: [
           _Card(
-            title: 'Server',
-            child: config.when(
-              loading: () => const SizedBox.shrink(),
-              error: (error, _) => Text('$error'),
-              data: (value) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Field(
-                    label: 'API address',
-                    value: value.baseUrl,
-                    hint: 'https://calyx.example.ts.net/api/v1',
-                    onSave: (input) => _save(ref, 'api_base_url', input),
+            title: 'Account',
+            child: ref
+                .watch(authControllerProvider)
+                .when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (error, _) => Text('$error'),
+                  data: (auth) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _Row('Signed in as', auth.username),
+                      _Row(
+                        'Server',
+                        auth.serverAddress.isEmpty
+                            ? 'same origin'
+                            : auth.serverAddress,
+                      ),
+                      const SizedBox(height: Spacing.md),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            ref.read(authControllerProvider.notifier).signOut(),
+                        icon: const Icon(Icons.logout, size: 18),
+                        label: const Text('Sign out'),
+                      ),
+                      const _Explainer(
+                        'Signing out revokes this token on the server, not just '
+                        'on this device. Local data stays until you sign in again.',
+                      ),
+                      const SizedBox(height: Spacing.md),
+                      const _ConnectionTest(),
+                    ],
                   ),
-                  const _Explainer(
-                    'The full URL ending in /api/v1. The default only works '
-                    'when this page is served from the same host as the API.',
-                  ),
-                  const SizedBox(height: Spacing.md),
-                  _Field(
-                    label: 'API token',
-                    value: value.token ?? '',
-                    obscure: true,
-                    hint: 'a long random string',
-                    onSave: (input) => _save(ref, 'api_token', input),
-                  ),
-                  const _Explainer(
-                    'Generate one on the server:\n'
-                    'make superuser        (once)\n'
-                    'make token USER=<you>',
-                  ),
-                  const SizedBox(height: Spacing.md),
-                  const _ConnectionTest(),
-                ],
-              ),
-            ),
+                ),
           ),
           _Card(
             title: 'Sync',
@@ -202,11 +199,6 @@ class SettingsScreen extends ConsumerWidget {
     if (delta.inDays < 1) return '${delta.inHours}h ago';
     return '${delta.inDays}d ago';
   }
-
-  Future<void> _save(WidgetRef ref, String key, String value) async {
-    await ref.read(dbProvider).setMeta(key, value.trim());
-    ref.invalidate(apiConfigProvider);
-  }
 }
 
 class _Card extends StatelessWidget {
@@ -267,65 +259,6 @@ class _Row extends StatelessWidget {
   }
 }
 
-class _Field extends StatefulWidget {
-  const _Field({
-    required this.label,
-    required this.value,
-    required this.onSave,
-    this.hint,
-    this.obscure = false,
-  });
-
-  final String label;
-  final String value;
-  final String? hint;
-  final bool obscure;
-  final Future<void> Function(String) onSave;
-
-  @override
-  State<_Field> createState() => _FieldState();
-}
-
-class _FieldState extends State<_Field> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.value,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _controller,
-            obscureText: widget.obscure,
-            decoration: InputDecoration(
-              labelText: widget.label,
-              hintText: widget.hint,
-              isDense: true,
-            ),
-          ),
-        ),
-        const SizedBox(width: Spacing.sm),
-        IconButton(
-          onPressed: () => widget.onSave(_controller.text),
-          icon: const Icon(Icons.check),
-          tooltip: 'Save',
-        ),
-      ],
-    );
-  }
-}
-
-/// Short grey note under a field. Setup is the one moment the app cannot
-/// assume the reader already knows what it wants from them.
 class _Explainer extends StatelessWidget {
   const _Explainer(this.text);
 
