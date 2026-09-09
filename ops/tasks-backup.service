@@ -1,0 +1,11 @@
+# Install to /etc/systemd/system/ on the home server, then:
+#   systemctl enable --now tasks-backup.timer
+[Unit]
+Description=Nightly Postgres dump for the tasks app
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/tasks/ops/backup.sh
+User=root

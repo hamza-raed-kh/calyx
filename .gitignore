@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Django
+/backend/media/
+/backend/staticfiles/*
+!/backend/staticfiles/.gitkeep
+*.sqlite3
+
+# Flutter / Dart
+/app/.dart_tool/
+/app/build/
+/app/.flutter-plugins*
+/app/android/.gradle/
+/app/android/key.properties
+/app/android/app/upload.jks
+# NOTE: generated Dart (*.g.dart, *.freezed.dart, *.drift.dart) is intentionally
+# COMMITTED, not ignored -- CI asserts `build_runner` output is up to date with
+# `git diff --exit-code`, which requires the generated files to be tracked.
+
+# Ops / secrets
+/ops/.env
+/ops/.env.image*
+/ops/backups/
+*.dump
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

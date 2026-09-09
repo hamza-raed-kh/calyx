@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly Postgres dump for the tasks app
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# Catch up after the server has been powered off, rather than silently
+# skipping the missed run.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

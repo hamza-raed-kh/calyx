@@ -1,0 +1,102 @@
+name: tasks
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    image: ${API_IMAGE:-tasks-api:local}
+    build:
+      context: ../backend
+      target: runtime
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+    volumes:
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/', timeout=5).status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # Runs the backend suite against the same Python and Postgres as production.
+  #   docker compose --profile test run --rm test
+  test:
+    image: tasks-api:dev
+    build:
+      context: ../backend
+      target: dev
+    profiles: ["test"]
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      DJANGO_DEBUG: "true"
+    volumes:
+      - ../backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Init container: copies the built Flutter bundle into the shared volume and
+  # exits. Staged then symlink-swapped so an interrupted copy can never leave a
+  # half-written bundle being served.
+  web:
+    image: ${WEB_IMAGE:-tasks-web:local}
+    profiles: ["app"]
+    restart: "no"
+    volumes:
+      - web_bundle:/out
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        STAGE="/out/.staging-$$(date -u +%Y%m%d%H%M%S)"
+        mkdir -p "$$STAGE"
+        cp -r /dist/. "$$STAGE/"
+        ln -sfn "$$STAGE" /out/.current.tmp
+        mv -Tf /out/.current.tmp /out/current
+        ls -1d /out/.staging-* | head -n -2 | xargs -r rm -rf
+        echo "web bundle published: $$STAGE"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - web_bundle:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  media:
+  web_bundle:
+  caddy_data:
+  caddy_config:

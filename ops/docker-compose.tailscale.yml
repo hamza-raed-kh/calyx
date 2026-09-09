@@ -1,0 +1,12 @@
+# Overlay for the home server. Gives Caddy access to the local tailscaled
+# socket so it can fetch a tailnet certificate at TLS handshake time -- no cert
+# files, no renewal cron.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tailscale.yml up -d
+#
+# Requires HTTPS certificates enabled for the tailnet (MagicDNS on) in the
+# Tailscale admin console.
+services:
+  caddy:
+    volumes:
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock

@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  backend-lint:
+    name: Backend lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+        working-directory: backend
+      - run: ruff check .
+        working-directory: backend
+      - run: ruff format --check .
+        working-directory: backend
+
+  backend-test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: tasks
+          POSTGRES_USER: tasks
+          POSTGRES_PASSWORD: tasks
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tasks -d tasks"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+      DJANGO_DEBUG: "false"
+      POSTGRES_DB: tasks
+      POSTGRES_USER: tasks
+      POSTGRES_PASSWORD: tasks
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+        working-directory: backend
+
+      # Catches a model change committed without its migration -- which would
+      # otherwise only surface when deploy.sh runs migrate on the server.
+      - name: Assert no missing migrations
+        run: python manage.py makemigrations --check --dry-run
+        working-directory: backend
+
+      - run: pytest --cov --cov-report=term-missing
+        working-directory: backend
