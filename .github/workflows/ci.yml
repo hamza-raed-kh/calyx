@@ -70,3 +70,75 @@ jobs:
 
       - run: pytest --cov --cov-report=term-missing
         working-directory: backend
+
+  # --- Flutter jobs ----------------------------------------------------------
+  # `hashFiles` returns an empty string when nothing matches, so these skip
+  # cleanly until the app is scaffolded rather than failing red.
+
+  app-analyze:
+    name: App analyze
+    runs-on: ubuntu-latest
+    if: hashFiles('app/pubspec.yaml') != ''
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: dart format --set-exit-if-changed .
+      - run: flutter analyze --fatal-infos
+
+      # drift, riverpod, freezed and go_router all generate code. Stale
+      # generated output is a constant source of confusing local failures, so
+      # assert the committed files match what build_runner produces.
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - name: Assert generated code is current
+        run: git diff --exit-code
+
+  app-test:
+    name: App tests
+    runs-on: ubuntu-latest
+    if: hashFiles('app/pubspec.yaml') != ''
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --coverage
+
+  drift-pin-check:
+    name: Drift pin check
+    runs-on: ubuntu-latest
+    if: hashFiles('app/pubspec.yaml') != ''
+    steps:
+      - uses: actions/checkout@v4
+      # sqlite3.wasm and drift_worker.dart.js ship separately from the drift
+      # Dart package and must come from the same release. A caret range lets
+      # `pub upgrade` desync them, which breaks web only, at runtime, with an
+      # obscure error. Fail here instead.
+      - name: Assert drift is pinned exactly
+        run: |
+          line=$(grep -E "^\s*drift:" app/pubspec.yaml || true)
+          echo "found: $line"
+          if [ -z "$line" ]; then echo "::error::drift not found in pubspec.yaml"; exit 1; fi
+          if echo "$line" | grep -qE "[\^~>=<]"; then
+            echo "::error::drift must be pinned to an exact version, got: $line"
+            exit 1
+          fi
+      - name: Assert drift web assets are committed
+        run: |
+          missing=0
+          for f in app/web/sqlite3.wasm app/web/drift_worker.dart.js; do
+            [ -f "$f" ] || { echo "::error::missing $f"; missing=1; }
+          done
+          exit $missing

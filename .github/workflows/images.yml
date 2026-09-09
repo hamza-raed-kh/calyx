@@ -9,13 +9,33 @@ concurrency:
   group: images-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  API_IMAGE: ghcr.io/${{ github.repository_owner }}/tasks-api
+  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/tasks-web
+
 jobs:
-  api:
-    name: Build API image
-    runs-on: ubuntu-latest
+  # --- API: built natively on each architecture, then merged ------------------
+  # Native runners rather than QEMU. The API image runs `pip install`, and
+  # emulated arm64 is 3-5x slower than the real thing; two native builds in
+  # parallel finish faster than one emulated build alone.
+  #
+  # NOTE: `ubuntu-24.04-arm` is free for public repositories. On a private repo
+  # it needs a paid plan -- if that bites, swap the arm64 runner to
+  # `ubuntu-latest` and add `docker/setup-qemu-action@v3` before buildx.
+  build-api:
+    name: API image (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -30,23 +50,124 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/tasks-api
+          images: ${{ env.API_IMAGE }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          target: runtime
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.API_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=api-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=api-${{ matrix.arch }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-api-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-api:
+    name: API manifest
+    runs-on: ubuntu-latest
+    needs: [build-api]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-api-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.API_IMAGE }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=sha,format=short
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
-      # Single-arch on purpose. The home server is x86_64; building linux/arm64
-      # under QEMU triples the build for an artifact nothing runs. If the server
-      # is ever replaced with ARM, change this line -- don't add both.
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.API_IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect
+        run: docker buildx imagetools inspect ${{ env.API_IMAGE }}:${{ steps.meta.outputs.version }}
+
+  # --- Web: one job, both arches ---------------------------------------------
+  # The web image is a busybox init container wrapping a static bundle -- there
+  # is nothing to compile, so a single buildx run emits both architectures with
+  # no emulation cost. Skipped until the Flutter app is scaffolded.
+  build-web:
+    name: Web image
+    runs-on: ubuntu-latest
+    if: hashFiles('app/pubspec.yaml') != ''
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build web bundle
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter build web --release --dart-define=API_BASE_URL=/api/v1
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.WEB_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
       - uses: docker/build-push-action@v6
         with:
-          context: backend
-          target: runtime
-          platforms: linux/amd64
+          context: app
+          file: app/Dockerfile.web
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
