@@ -12,7 +12,7 @@ select = ["E", "F", "I", "UP", "B", "DJ", "C4", "SIM", "RUF"]
 ignore = ["RUF012"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings"
+DJANGO_SETTINGS_MODULE = "config.settings_test"
 python_files = ["test_*.py"]
 addopts = "-q --strict-markers"
 testpaths = ["apps"]
