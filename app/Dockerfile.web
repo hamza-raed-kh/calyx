@@ -1,0 +1,9 @@
+# The web bundle as a pullable, digest-pinnable artifact.
+#
+# Not baked into the API image: the two rebuild on completely different cadences
+# and toolchains, and nobody should re-push a 300 MB Python image to change a
+# padding value. Not its own web server either -- Caddy is already in front and
+# serves static files perfectly well, so this image exists only to carry the
+# bytes and exit.
+FROM busybox:1.37
+COPY build/web /dist

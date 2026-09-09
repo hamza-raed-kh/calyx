@@ -1,0 +1,16 @@
+# Only build/web belongs in the image context.
+.dart_tool/
+.gradle/
+android/
+linux/
+lib/
+test/
+web/
+build/app/
+build/linux/
+build/native_assets/
+*.iml
+.idea/
+.flutter-plugins*
+pubspec.lock
+analysis_options.yaml

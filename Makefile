@@ -2,7 +2,7 @@
 # repo root; compose itself lives in ops/.
 COMPOSE := docker compose -f ops/docker-compose.yml
 
-.PHONY: help up down restart logs ps build migrate makemigrations superuser shell test lint fmt check backup restore-check
+.PHONY: help up down restart logs ps build migrate makemigrations superuser shell test lint fmt check backup restore-check web-build web-deploy web-check flutter
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -39,6 +39,16 @@ check:           ## Everything CI runs
 	$(MAKE) lint
 	$(COMPOSE) --profile test run --rm test python manage.py makemigrations --check --dry-run
 	$(MAKE) test
+
+web-build:       ## Build the Flutter web bundle
+	./ops/flutter.sh flutter build web --release --dart-define=API_BASE_URL=/api/v1
+web-deploy:      ## Publish the built bundle into the serving volume
+	$(COMPOSE) --profile app build web
+	$(COMPOSE) --profile app up web
+web-check:       ## Assert the served app reaches durable OPFS storage
+	./ops/web-persistence-check.sh
+flutter:         ## Run any flutter command, e.g. make flutter ARGS="pub get"
+	./ops/flutter.sh flutter $(ARGS)
 
 backup:          ## Dump the database
 	./ops/backup.sh

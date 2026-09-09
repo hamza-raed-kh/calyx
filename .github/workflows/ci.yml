@@ -122,7 +122,7 @@ jobs:
     if: hashFiles('app/pubspec.yaml') != ''
     steps:
       - uses: actions/checkout@v4
-      # sqlite3.wasm and drift_worker.dart.js ship separately from the drift
+      # sqlite3.wasm and drift_worker.js are attached to the drift GitHub release
       # Dart package and must come from the same release. A caret range lets
       # `pub upgrade` desync them, which breaks web only, at runtime, with an
       # obscure error. Fail here instead.
@@ -138,7 +138,7 @@ jobs:
       - name: Assert drift web assets are committed
         run: |
           missing=0
-          for f in app/web/sqlite3.wasm app/web/drift_worker.dart.js; do
+          for f in app/web/sqlite3.wasm app/web/drift_worker.js; do
             [ -f "$f" ] || { echo "::error::missing $f"; missing=1; }
           done
           exit $missing

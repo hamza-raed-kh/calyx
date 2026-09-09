@@ -36,3 +36,6 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+
+# Flutter build output (the web bundle is packaged by CI, not committed)
+/app/build/
