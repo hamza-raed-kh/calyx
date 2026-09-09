@@ -5,7 +5,7 @@
            are not clocks or calendars, so the app checks before every
            scheduling pass and degrades visibly rather than silently.
          USE_EXACT_ALARM: auto-granted with no prompt. Play policy forbids it
-           for non-alarm apps, which does not apply here -- this build is
+           for non-alarm apps, which does not apply here: this build is
            sideloaded and never goes to Play. A "play" flavour would drop it.
          RECEIVE_BOOT_COMPLETED: without it and the receiver below, every
            scheduled reminder is silently lost on reboot. -->
@@ -15,7 +15,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="tasks"
+        android:label="calyx"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

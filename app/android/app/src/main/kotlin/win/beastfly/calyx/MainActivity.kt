@@ -1,4 +1,4 @@
-package io.shusmo.tasks
+package win.beastfly.calyx
 
 import io.flutter.embedding.android.FlutterActivity
 

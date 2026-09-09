@@ -1,6 +1,6 @@
 {
-    "name": "tasks",
-    "short_name": "tasks",
+    "name": "calyx",
+    "short_name": "calyx",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

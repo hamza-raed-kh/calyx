@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tasks/data/db/persistence.dart';
+import 'package:calyx/data/db/persistence.dart';
 
 void main() {
   group('PersistenceReport', () {

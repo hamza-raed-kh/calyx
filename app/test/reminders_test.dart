@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tasks/data/db/database.dart';
-import 'package:tasks/notifications/scheduler.dart';
+import 'package:calyx/data/db/database.dart';
+import 'package:calyx/notifications/scheduler.dart';
 
 AgendaDay day(String date, List<Map<String, dynamic>> occurrences) {
   return AgendaDay(
