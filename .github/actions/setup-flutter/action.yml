@@ -1,0 +1,26 @@
+name: Setup Flutter
+description: >-
+  Installs the exact Flutter version recorded in .flutter-version.
+
+  Pinning matters more than it looks. `channel: stable` resolves to whatever is
+  current when each job runs, so CI and a developer machine silently end up on
+  different SDKs. The skew surfaces as pubspec.lock churn and generated-code
+  diffs, which then fail the `git diff --exit-code` gate for reasons that have
+  nothing to do with the commit under test.
+
+  The pinned version is bounded by the newest tag published at
+  ghcr.io/cirruslabs/flutter, because ops/flutter.sh runs the same SDK locally
+  from that image. Bumping is a one-line change to .flutter-version, but it
+  needs both a released Flutter version and a matching image tag to exist.
+
+runs:
+  using: composite
+  steps:
+    - id: version
+      shell: bash
+      run: echo "flutter=$(cat .flutter-version)" >> "$GITHUB_OUTPUT"
+
+    - uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ steps.version.outputs.flutter }}
+        cache: true

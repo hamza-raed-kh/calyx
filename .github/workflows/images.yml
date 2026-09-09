@@ -140,10 +140,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+      - uses: ./.github/actions/setup-flutter
 
       - name: Build web bundle
         working-directory: app

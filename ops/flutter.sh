@@ -10,7 +10,11 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="${FLUTTER_IMAGE:-ghcr.io/cirruslabs/flutter:stable}"
+# Pinned, not ":stable". A moving tag means a locally cached image can be
+# months behind whatever CI resolves, and the skew surfaces as pubspec.lock and
+# generated-code churn that fails CI for no reason connected to the change.
+FLUTTER_VERSION="$(cat "$REPO/.flutter-version")"
+IMAGE="${FLUTTER_IMAGE:-ghcr.io/cirruslabs/flutter:$FLUTTER_VERSION}"
 WORKDIR="${FLUTTER_WORKDIR:-/work/app}"
 
 docker run --rm \
