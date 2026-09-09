@@ -80,7 +80,69 @@ quietly stops being durable, and a refresh eats the outbox. Measured:
 | storage | `opfsLocks` | `sharedIndexedDb` |
 | tier | durable | best effort |
 
+## Deploying anywhere: `compose.yaml`
+
+`compose.yaml` at the repo root is self-contained. Copy that one file to an
+empty directory and run it — no `.env`, no proxy config, no source tree:
+
+```sh
+docker compose up -d
+```
+
+Images are pinned by name and pulled from GHCR (public, multi-arch), migrations
+run to completion before the API starts, and every setting has a default. It
+publishes **two ports for your own reverse proxy** and nothing else:
+
+| Port | Service |
+|---|---|
+| `8080` (`WEB_PORT`) | the Flutter web app |
+| `8000` (`API_PORT`) | the Django API and admin |
+
+Postgres is never published; it exists only on the internal network.
+
+### What your proxy must do
+
+**Map both onto one hostname.** Same origin means no CORS and no rebuild — the
+web bundle calls the API at the relative path `/api/v1`:
+
+```
+/        ->  127.0.0.1:8080
+/api     ->  127.0.0.1:8000
+/admin   ->  127.0.0.1:8000
+/static  ->  127.0.0.1:8000
+```
+
+Two different hostnames also work, but then set the API address by hand in the
+app's Settings screen.
+
+**Terminate TLS.** This is not about confidentiality on your own network. The
+web client needs a *secure context* for OPFS storage, and browsers exempt
+`localhost` only — measured, over plain HTTP on a LAN address:
+
+| Served as | Secure context | Storage |
+|---|---|---|
+| `https://…` or `http://localhost` | yes | `opfsLocks`, durable |
+| `http://192.168.x.x` | **no** | `sharedIndexedDb`, evictable |
+
+**Do not strip `Cross-Origin-Opener-Policy` or `Cross-Origin-Embedder-Policy`.**
+The bundled nginx sets them, so you have nothing to configure — but a proxy that
+drops them silently downgrades storage in the same way, with no error anywhere.
+
+Verify any of this against a running deployment:
+
+```sh
+./ops/web-persistence-check.sh https://tasks.example.ts.net/
+```
+
+Set `DJANGO_CSRF_TRUSTED_ORIGINS` to your external origin if you want to log
+into `/admin/` through the proxy. The API generates and persists its own signing
+key on first boot, so this file carries no published secret.
+
 ## Deploying to the home server
+
+The alternative to the standalone file above: `ops/docker-compose.yml` bundles
+Caddy, which terminates TLS with a tailnet certificate and serves both halves
+from one origin, so there is no external proxy to run at all.
 
 CI cannot reach the server — nothing is exposed publicly — so it publishes
 multi-arch images to GHCR and you pull:

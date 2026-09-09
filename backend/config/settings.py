@@ -5,6 +5,7 @@ settings models are singletons. See the implementation plan for why.
 """
 
 import os
+import secrets
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,7 +28,36 @@ def env_list(key: str, default: str = "") -> list[str]:
 
 # --- Core -------------------------------------------------------------------
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", "insecure-dev-key-do-not-use-in-production")
+
+def _secret_key() -> str:
+    """The signing key, without ever shipping a known default.
+
+    A compose file that runs with no .env is only safe if it does not carry a
+    hardcoded secret, so an unset key is generated once and persisted beside the
+    data. If that volume is missing or read-only the key becomes ephemeral,
+    which logs everyone out on restart -- visible and annoying, and far better
+    than silently signing sessions with a value published on GitHub.
+    """
+    supplied = os.environ.get("DJANGO_SECRET_KEY")
+    if supplied:
+        return supplied
+
+    path = Path(os.environ.get("DJANGO_SECRET_KEY_FILE", BASE_DIR / "state" / "secret_key"))
+    try:
+        if path.exists():
+            stored = path.read_text().strip()
+            if stored:
+                return stored
+        path.parent.mkdir(parents=True, exist_ok=True)
+        generated = secrets.token_urlsafe(64)
+        path.write_text(generated)
+        path.chmod(0o600)
+        return generated
+    except OSError:
+        return secrets.token_urlsafe(64)
+
+
+SECRET_KEY = _secret_key()
 DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,api")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "http://localhost")

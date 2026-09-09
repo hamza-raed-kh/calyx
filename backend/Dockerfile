@@ -26,7 +26,11 @@ COPY . .
 RUN DJANGO_SECRET_KEY=build-only POSTGRES_HOST=unused \
     python manage.py collectstatic --noinput --clear
 
-RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin app \
+# Created in the image so a named volume mounted here inherits this ownership.
+# A volume over a path that does not exist is created root-owned, and the app
+# user then cannot write its generated secret key.
+RUN mkdir -p /app/state /app/media \
+    && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin app \
     && chown -R app:app /app
 USER app
 

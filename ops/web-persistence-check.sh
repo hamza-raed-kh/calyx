@@ -38,9 +38,21 @@ echo "$REPORT" | python3 -m json.tool
 TIER="$(echo "$REPORT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["tier"])')"
 ISOLATED="$(echo "$REPORT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["crossOriginIsolated"])')"
 
+SECURE="$(echo "$REPORT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["isSecureContext"])')"
+
 if [[ "$TIER" != "$EXPECT_TIER" ]]; then
     echo "FAIL: storage tier is '$TIER', expected '$EXPECT_TIER'." >&2
-    [[ "$ISOLATED" == "False" ]] && echo "      crossOriginIsolated is false -- check COOP/COEP in ops/Caddyfile." >&2
+    if [[ "$SECURE" == "False" ]]; then
+        # The likelier cause in a proxied deployment, and it is not fixable by
+        # any header: OPFS needs a secure context, and only localhost gets one
+        # without TLS.
+        echo "      Not a secure context. Serve over HTTPS -- browsers exempt" >&2
+        echo "      localhost only, so a plain-HTTP LAN address will always" >&2
+        echo "      degrade to evictable storage." >&2
+    elif [[ "$ISOLATED" == "False" ]]; then
+        echo "      crossOriginIsolated is false: the COOP/COEP headers are" >&2
+        echo "      missing or were stripped by a proxy in front." >&2
+    fi
     exit 1
 fi
 
