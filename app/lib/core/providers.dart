@@ -13,6 +13,8 @@ import '../data/db/database.dart';
 import '../data/db/persistence.dart';
 import '../data/repositories/habit_repository.dart';
 import '../data/repositories/task_repository.dart';
+import '../notifications/platform_scheduler.dart';
+import '../notifications/scheduler.dart';
 import '../sync/outbox.dart';
 import '../sync/sync_engine.dart';
 
@@ -73,6 +75,14 @@ final taskRepositoryProvider = Provider<TaskRepository>(
   (ref) => TaskRepository(ref.watch(dbProvider), ref.watch(outboxProvider)),
 );
 
+final schedulerProvider = Provider<NotificationScheduler>(
+  (ref) => createScheduler(),
+);
+
+final reminderStatusProvider = FutureProvider<ReminderStatus>(
+  (ref) => ref.watch(schedulerProvider).status(),
+);
+
 final syncEngineProvider = Provider<SyncEngine>((ref) {
   return SyncEngine(
     ref.watch(dbProvider),
@@ -98,8 +108,23 @@ class SyncController extends Notifier<SyncStatus> {
     // a half-finished pull would show a day built from stale habits.
     if (result.phase != SyncPhase.failed) {
       await engine.refreshHorizon();
+      await _rescheduleReminders();
     }
     state = result;
+  }
+
+  /// Rebuild the alarm window from the freshly cached agenda.
+  ///
+  /// Cancel-and-reschedule over a rolling seven days rather than diffing: a
+  /// settings change then takes effect within a day, and moving cities does not
+  /// leave weeks of wrong alarms pinned to the system.
+  Future<void> _rescheduleReminders() async {
+    final db = ref.read(dbProvider);
+    final days = await db.select(db.agendaDays).get();
+    final scheduler = ref.read(schedulerProvider);
+    await scheduler.initialise();
+    await scheduler.reschedule(remindersFrom(days));
+    ref.invalidate(reminderStatusProvider);
   }
 }
 

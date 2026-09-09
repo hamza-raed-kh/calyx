@@ -6,6 +6,7 @@ import '../../core/router/router.dart';
 import '../../core/theme/glass_surface.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/db/persistence.dart';
+import '../../notifications/scheduler.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -81,6 +82,40 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+          _Card(
+            title: 'Reminders',
+            child: ref
+                .watch(reminderStatusProvider)
+                .when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (error, _) => Text('\$error'),
+                  data: (reminders) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _Row(
+                        'Status',
+                        reminders.summary,
+                        tone: switch (reminders.capability) {
+                          ReminderCapability.exact => DarkPalette.success,
+                          ReminderCapability.inexact => DarkPalette.warning,
+                          _ => DarkPalette.textMuted,
+                        },
+                      ),
+                      if (reminders.detail.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: Spacing.sm),
+                          child: Text(
+                            reminders.detail,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: DarkPalette.textMuted,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
           ),
           _Card(
             title: 'Local storage',
