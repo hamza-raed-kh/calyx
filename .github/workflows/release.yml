@@ -47,11 +47,15 @@ jobs:
 
       - run: flutter pub get
 
+      # Android has no origin to ask, so the API address is baked in here.
+      # Set API_BASE_URL in the release environment to the absolute URL, e.g.
+      # https://calyx.example.ts.net/api/v1 -- otherwise the APK ships pointing
+      # at a relative path that means nothing off the web.
       # split-per-abi keeps the arm64-v8a APK small; the universal build is the
       # fallback for anything unusual. No .aab -- this is sideloaded, never
       # going to Play, so an app bundle would be useless.
-      - run: flutter build apk --release --split-per-abi
-      - run: flutter build apk --release
+      - run: flutter build apk --release --split-per-abi --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
+      - run: flutter build apk --release --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
       # A release APK that fell back to the debug key builds and installs
       # perfectly, then refuses to update over a properly signed one -- and
@@ -82,6 +86,8 @@ jobs:
   linux-bundle:
     name: Linux desktop bundle
     runs-on: ubuntu-latest
+    # Same environment as the APK: it needs API_BASE_URL baked in too.
+    environment: release
     defaults:
       run:
         working-directory: app
@@ -99,7 +105,7 @@ jobs:
       - uses: ./.github/actions/setup-flutter
 
       - run: flutter pub get
-      - run: flutter build linux --release
+      - run: flutter build linux --release --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
       - name: Package
         run: tar czf "calyx-linux-x64-${GITHUB_REF_NAME}.tar.gz" -C build/linux/x64/release bundle

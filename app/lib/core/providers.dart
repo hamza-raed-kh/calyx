@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/api/api_client.dart';
+import '../data/api/runtime_config.dart';
 import '../data/db/database.dart';
 import '../data/db/persistence.dart';
 import '../data/repositories/habit_repository.dart';
@@ -52,17 +53,24 @@ final clientIdProvider = FutureProvider<String>((ref) async {
 /// be pointed at the tailnet host by hand.
 final apiConfigProvider = FutureProvider<ApiConfig>((ref) async {
   final db = ref.watch(dbProvider);
+  // The address is deployment configuration, never a user setting. On web it
+  // comes from the container serving the app, so one image works for any
+  // hostname; elsewhere it is baked in at build time. Either way nobody is
+  // asked to type a URL.
+  final resolved = await runtimeApiBaseUrl();
   return ApiConfig(
-    baseUrl: await db.meta('api_base_url') ?? kDefaultApiBase,
+    baseUrl: resolved ?? kDefaultApiBase,
     token: await db.meta('api_token'),
   );
 });
 
 final apiClientProvider = Provider<ApiClient>((ref) {
-  final config =
-      ref.watch(apiConfigProvider).value ??
-      const ApiConfig(baseUrl: kDefaultApiBase);
-  return ApiClient(config);
+  // requireValue, not a fallback. Falling back to the compile-time default
+  // while the real config resolves sends the first calls -- including the one
+  // that decides whether sign-up is offered -- to the wrong host entirely.
+  // The app gates on apiConfigProvider, so this is resolved before any screen
+  // that uses it can build.
+  return ApiClient(ref.watch(apiConfigProvider).requireValue);
 });
 
 final outboxProvider = Provider<Outbox>((ref) => Outbox(ref.watch(dbProvider)));

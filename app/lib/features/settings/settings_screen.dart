@@ -33,12 +33,6 @@ class SettingsScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _Row('Signed in as', auth.username),
-                      _Row(
-                        'Server',
-                        auth.serverAddress.isEmpty
-                            ? 'same origin'
-                            : auth.serverAddress,
-                      ),
                       const SizedBox(height: Spacing.md),
                       OutlinedButton.icon(
                         onPressed: () =>

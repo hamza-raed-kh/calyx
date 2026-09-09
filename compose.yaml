@@ -139,11 +139,22 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"
+    environment:
+      # Where the app should call the API. Served to the browser at runtime, so
+      # one published image works for any hostname with no rebuild.
+      #
+      # Leave as /api/v1 when the API is behind the same hostname as this app.
+      # Set the absolute URL when they are on different subdomains, e.g.
+      #   API_BASE_URL=https://api-calyx.example.ts.net/api/v1
+      API_BASE_URL: ${API_BASE_URL:-/api/v1}
+      # Substitute ONLY that variable: nginx configs are full of $$uri and
+      # friends, and envsubst would happily eat them all.
+      NGINX_ENVSUBST_FILTER: API_BASE_URL
     volumes:
       - web_bundle:/srv:ro
     configs:
       - source: nginx_site
-        target: /etc/nginx/conf.d/default.conf
+        target: /etc/nginx/templates/default.conf.template
     depends_on:
       web-bundle:
         condition: service_completed_successfully
@@ -198,6 +209,14 @@ configs:
               add_header Cross-Origin-Resource-Policy "same-origin" always;
               add_header X-Content-Type-Options "nosniff" always;
               add_header Cache-Control "public, max-age=31536000, immutable" always;
+          }
+
+          # The app fetches this on boot to learn where the API lives, so the
+          # address is deployment configuration and never a user setting.
+          location = /config.json {
+              default_type application/json;
+              add_header Cache-Control "no-store" always;
+              return 200 '{"apiBaseUrl":"${API_BASE_URL}"}';
           }
 
           location / {

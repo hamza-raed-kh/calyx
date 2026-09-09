@@ -171,28 +171,37 @@ HTTPS certificates for the tailnet in the Tailscale admin console.
 
 ## Connecting the app
 
-Open it and sign in. There is no token to mint and nothing to configure on the
-server first.
+Open it and sign in. There is no address to enter and no token to mint — the
+server location is deployment configuration and never appears in the UI.
 
 A deployment with no accounts yet is **unclaimed**: it accepts exactly one
-registration regardless of `ALLOW_SIGNUPS`, so the owner can claim it from the
-app rather than SSHing in to run a management command. That account gets the
-Django admin, and the instance closes behind it — further registrations then
-follow `ALLOW_SIGNUPS`, which defaults to false.
+registration regardless of `ALLOW_SIGNUPS`, so the owner claims it from the app
+rather than SSHing in to run a management command. That account gets the Django
+admin, and the instance closes behind it — further registrations then follow
+`ALLOW_SIGNUPS`, which defaults to false. The app cannot be used at all without
+signing in, since every screen is a view of synced data.
 
 The window this opens is small but real: someone who reaches a brand-new
 deployment before you could claim it. On a tailnet with nothing published that
 is close to theoretical, and it is the trade every self-hosted app of this shape
 makes. Register immediately after deploying.
 
-- **Web** is served from the API's own origin, so it needs no address at all.
-- **Android and Linux** have no origin to be relative to. Tap *Change server
-  address* on the sign-in screen and enter
-  `https://calyx.<tailnet>.ts.net/api/v1`.
+### Telling the app where the API is
 
-Settings shows who you are signed in as and can sign out, which revokes the
-token on the server rather than only forgetting it here — a token dropped from a
-device you no longer have is still a working credential.
+**Web** reads it at runtime from the container serving it, so one published
+image works for any hostname with no rebuild:
+
+```yaml
+API_BASE_URL: https://api-calyx.example.ts.net/api/v1
+```
+
+Leave it at the `/api/v1` default when the API is behind the same hostname.
+The container serves this at `/config.json`, which the app fetches on boot.
+
+**Android and Linux** have no server to ask, so it is baked in at build time.
+Set `API_BASE_URL` as a secret in the repository's `release` environment; the
+release workflow passes it to both builds via `--dart-define`. Without it the
+APK ships pointing at a relative path that means nothing off the web.
 
 ## Reminders
 

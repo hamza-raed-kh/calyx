@@ -5,11 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 
 class AuthState {
-  const AuthState({this.token, this.user, this.serverAddress = ''});
+  const AuthState({this.token, this.user});
 
   final String? token;
   final Map<String, dynamic>? user;
-  final String serverAddress;
 
   bool get isSignedIn => token != null && token!.isNotEmpty;
   String get username => user?['username'] as String? ?? '';
@@ -28,14 +27,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     return AuthState(
       token: await db.meta('api_token'),
       user: raw == null ? null : jsonDecode(raw) as Map<String, dynamic>,
-      serverAddress: await db.meta('api_base_url') ?? '',
     );
-  }
-
-  Future<void> setServerAddress(String address) async {
-    await ref.read(dbProvider).setMeta('api_base_url', address.trim());
-    ref.invalidate(apiConfigProvider);
-    ref.invalidateSelf();
   }
 
   Future<String?> signIn({
@@ -63,10 +55,12 @@ class AuthController extends AsyncNotifier<AuthState> {
       final response = await api.post(path, body);
 
       if (response.status == 0) {
-        return 'Could not reach the server. Check the address above.';
+        return 'Could not reach the server. It may be down, or off this '
+            "device's network.";
       }
       if (response.status == 404) {
-        return 'No API at that address. Does it end in /api/v1?';
+        return 'Reached something, but not the API. The deployment is '
+            'misconfigured.';
       }
       if (!response.ok) {
         return _describe(response.json) ??
@@ -118,8 +112,6 @@ final authControllerProvider = AsyncNotifierProvider<AuthController, AuthState>(
 /// A fresh deployment accepts one regardless of the signups flag, so it can be
 /// claimed from the app rather than over SSH.
 final registrationOpenProvider = FutureProvider<bool>((ref) async {
-  // Depend on the address so switching servers re-checks.
-  ref.watch(authControllerProvider.select((s) => s.value?.serverAddress));
   final response = await ref.read(apiClientProvider).get('/auth/config/');
   if (!response.ok) return false;
   return response.json['registration_open'] as bool? ?? false;

@@ -187,10 +187,12 @@ class _EmptyAgenda extends ConsumerWidget {
         children: [
           const Icon(Icons.cloud_off, size: 40, color: DarkPalette.textMuted),
           const SizedBox(height: Spacing.md),
-          const Text('No agenda cached yet.'),
+          const Text('Nothing synced yet.'),
           const SizedBox(height: Spacing.sm),
           const Text(
-            'Set the server address in Settings, then sync.',
+            'Your habits and tasks live on the server.\n'
+            'Sync to pull today down to this device.',
+            textAlign: TextAlign.center,
             style: TextStyle(color: DarkPalette.textMuted),
           ),
           const SizedBox(height: Spacing.lg),

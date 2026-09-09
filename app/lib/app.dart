@@ -14,6 +14,9 @@ class TasksApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final database = ref.watch(databaseProvider);
+    // The API address is resolved from deployment config before anything can
+    // call the API, so no request is ever aimed at a placeholder host.
+    final apiConfig = ref.watch(apiConfigProvider);
 
     return MaterialApp.router(
       title: 'calyx',
@@ -28,15 +31,17 @@ class TasksApp extends ConsumerWidget {
           error: (error, _) => _Fatal(error: '\$error'),
           // Sign-in gates the app because every screen is a view of synced
           // data: without an account there is nothing to show.
-          data: (_) => ref
-              .watch(authControllerProvider)
-              .when(
-                loading: () => const _Splash(),
-                error: (error, _) => _Fatal(error: '\$error'),
-                data: (auth) => auth.isSignedIn
-                    ? (child ?? const SizedBox.shrink())
-                    : const LoginScreen(),
-              ),
+          data: (_) => apiConfig.isLoading
+              ? const _Splash()
+              : ref
+                    .watch(authControllerProvider)
+                    .when(
+                      loading: () => const _Splash(),
+                      error: (error, _) => _Fatal(error: '\$error'),
+                      data: (auth) => auth.isSignedIn
+                          ? (child ?? const SizedBox.shrink())
+                          : const LoginScreen(),
+                    ),
         );
       },
     );

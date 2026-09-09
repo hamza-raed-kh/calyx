@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/providers.dart';
 import '../../core/theme/glass_surface.dart';
 import '../../core/theme/tokens.dart';
 import 'auth_controller.dart';
@@ -16,20 +17,14 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _username = TextEditingController();
   final _password = TextEditingController();
-  late final TextEditingController _server = TextEditingController(
-    text: ref.read(authControllerProvider).value?.serverAddress ?? '',
-  );
-
   bool _creating = false;
   bool _busy = false;
-  bool _showServer = false;
   String? _error;
 
   @override
   void dispose() {
     _username.dispose();
     _password.dispose();
-    _server.dispose();
     super.dispose();
   }
 
@@ -40,10 +35,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     final auth = ref.read(authControllerProvider.notifier);
-    if (_server.text.trim().isNotEmpty) {
-      await auth.setServerAddress(_server.text);
-    }
-
     final error = _creating
         ? await auth.register(
             username: _username.text.trim(),
@@ -54,16 +45,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             password: _password.text,
           );
 
+    if (error == null) {
+      // Land on a populated Today, not on an empty one with a Sync button.
+      // Failure here is not a sign-in failure: they are authenticated either
+      // way, and the Today screen reports sync problems itself.
+      await ref.read(syncControllerProvider.notifier).syncNow();
+    }
+
     if (!mounted) return;
     setState(() {
       _busy = false;
       _error = error;
-      // Reveal the server field when the failure is plausibly the address,
-      // rather than making them hunt for it.
-      if (error != null &&
-          (error.contains('reach') || error.contains('address'))) {
-        _showServer = true;
-      }
     });
   }
 
@@ -116,17 +108,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             labelText: 'Password',
                           ),
                         ),
-                        if (_showServer) ...[
-                          const SizedBox(height: Spacing.md),
-                          TextField(
-                            controller: _server,
-                            keyboardType: TextInputType.url,
-                            decoration: const InputDecoration(
-                              labelText: 'Server address',
-                              hintText: 'https://calyx.example.ts.net/api/v1',
-                            ),
-                          ),
-                        ],
                         if (_error != null) ...[
                           const SizedBox(height: Spacing.md),
                           Text(
@@ -168,18 +149,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             : 'Create an account',
                       ),
                     ),
-                  TextButton(
-                    onPressed: () => setState(() => _showServer = !_showServer),
-                    child: Text(
-                      _showServer
-                          ? 'Hide server address'
-                          : 'Change server address',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: DarkPalette.textMuted,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
