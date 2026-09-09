@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.sync",
     "apps.tasks",
+    "apps.habits",
 ]
 
 MIDDLEWARE = [
