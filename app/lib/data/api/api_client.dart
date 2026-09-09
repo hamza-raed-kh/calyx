@@ -1,10 +1,18 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// Where the API lives.
 ///
 /// On web the app is served from the same origin as the API, so a relative path
 /// is correct and avoids CORS entirely. On Android and Linux there is no origin
 /// to be relative to, so the tailnet URL is configured in Settings.
+/// Which build this is. Set by CI; "dev" locally.
+///
+/// Exists because a browser can keep serving a cached bundle long after the
+/// image behind it was replaced, so "did my fix actually deploy?" is otherwise
+/// unanswerable from the outside.
+const kBuildRef = String.fromEnvironment('BUILD_REF', defaultValue: 'dev');
+
 const kDefaultApiBase = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: '/api/v1',
@@ -16,7 +24,18 @@ class ApiConfig {
   final String baseUrl;
   final String? token;
 
-  bool get isConfigured => baseUrl.isNotEmpty;
+  /// Whether this build can actually reach an API.
+  ///
+  /// A relative path works on the web, where it resolves against the page's
+  /// origin. Off the web there is no origin to resolve against, and Dio rejects
+  /// it outright -- so an Android build shipped without API_BASE_URL does not
+  /// merely point somewhere useless, it throws while being constructed. Better
+  /// to detect that and say so than to crash on launch.
+  bool get isUsable {
+    if (baseUrl.isEmpty) return false;
+    if (kIsWeb) return true;
+    return baseUrl.startsWith('http://') || baseUrl.startsWith('https://');
+  }
 }
 
 class ApiClient {
@@ -28,7 +47,11 @@ class ApiClient {
   static Dio _build(ApiConfig config) {
     final dio = Dio(
       BaseOptions(
-        baseUrl: config.baseUrl,
+        // Never hand Dio a base it will reject; an unusable config is reported
+        // by the UI instead of throwing here.
+        baseUrl: config.isUsable
+            ? config.baseUrl
+            : 'http://unconfigured.invalid',
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 30),
         // Never throw on a status code: sync needs to inspect 4xx bodies to

@@ -5,6 +5,7 @@ import '../../core/providers.dart';
 import '../../core/router/router.dart';
 import '../../core/theme/glass_surface.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/api/api_client.dart';
 import '../../data/db/persistence.dart';
 import '../../notifications/scheduler.dart';
 import '../auth/auth_controller.dart';
@@ -118,6 +119,19 @@ class SettingsScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+          ),
+          _Card(
+            title: 'About',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Row('Build', kBuildRef),
+                _Row(
+                  'API',
+                  ref.watch(apiConfigProvider).value?.baseUrl ?? 'resolving…',
+                ),
+              ],
+            ),
           ),
           _Card(
             title: 'Local storage',

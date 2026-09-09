@@ -146,7 +146,9 @@ jobs:
         working-directory: app
         run: |
           flutter pub get
-          flutter build web --release --dart-define=API_BASE_URL=/api/v1
+          flutter build web --release \
+            --dart-define=API_BASE_URL=/api/v1 \
+            --dart-define=BUILD_REF="${GITHUB_SHA:0:7}"
 
       - uses: docker/setup-buildx-action@v3
 

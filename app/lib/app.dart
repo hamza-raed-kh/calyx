@@ -33,6 +33,8 @@ class TasksApp extends ConsumerWidget {
           // data: without an account there is nothing to show.
           data: (_) => apiConfig.isLoading
               ? const _Splash()
+              : !(apiConfig.value?.isUsable ?? false)
+              ? const _Unconfigured()
               : ref
                     .watch(authControllerProvider)
                     .when(
@@ -81,6 +83,46 @@ class _Fatal extends StatelessWidget {
                 error,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: DarkPalette.textMuted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when the build has no usable server address.
+///
+/// Only reachable off the web, and only when API_BASE_URL was not supplied at
+/// build time. Saying so plainly beats a crash or an app that silently reaches
+/// nothing.
+class _Unconfigured extends StatelessWidget {
+  const _Unconfigured();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: DarkPalette.background,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(Spacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.settings_ethernet,
+                color: DarkPalette.warning,
+                size: 40,
+              ),
+              SizedBox(height: Spacing.md),
+              Text('No server configured in this build.'),
+              SizedBox(height: Spacing.sm),
+              Text(
+                'This copy of calyx was built without API_BASE_URL, so it does '
+                'not know where its server is. Rebuild the release with it set.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: DarkPalette.textMuted, fontSize: 12),
               ),
             ],
           ),

@@ -23,10 +23,31 @@ class AuthController extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
     final db = ref.watch(dbProvider);
+    final token = await db.meta('api_token');
+    if (token == null || token.isEmpty) return const AuthState();
+
+    // Do NOT trust a stored token just because it is there. A token left over
+    // from an older build, revoked on the server, or belonging to a wiped
+    // database all look identical to a valid one -- and the app would sail past
+    // the sign-in screen and then fail every sync with no explanation.
+    //
+    // Offline is different from rejected: a network failure must not sign
+    // somebody out, so only an explicit 401/403 clears the session.
+    final response = await ref.read(apiClientProvider).get('/auth/me/');
+    if (response.status == 401 || response.status == 403) {
+      await db.setMeta('api_token', '');
+      await db.setMeta('auth_user', '');
+      return const AuthState();
+    }
+
     final raw = await db.meta('auth_user');
     return AuthState(
-      token: await db.meta('api_token'),
-      user: raw == null ? null : jsonDecode(raw) as Map<String, dynamic>,
+      token: token,
+      user: response.ok
+          ? response.json
+          : (raw == null || raw.isEmpty
+                ? null
+                : jsonDecode(raw) as Map<String, dynamic>),
     );
   }
 
