@@ -8,6 +8,8 @@ import os
 import secrets
 from pathlib import Path
 
+from corsheaders.defaults import default_headers
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -65,6 +67,18 @@ CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "http://localhost
 # Signups are gated by this flag; the app is single-user in practice.
 ALLOW_SIGNUPS = env_bool("ALLOW_SIGNUPS", False)
 
+# Only needed when the web client is served from a DIFFERENT origin than the
+# API. Serving both from one hostname (/ to the web container, /api to this one)
+# makes the whole question disappear, which is why this defaults to empty.
+#
+# Full origins including scheme, e.g.
+#   CORS_ALLOWED_ORIGINS=https://calyx.example.ts.net
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS")
+# Token auth travels in a header, not a cookie, so credentialed requests are not
+# needed -- and allowing them would force the origin list to be exact anyway.
+CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_HEADERS = [*default_headers, "authorization"]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -74,6 +88,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
+    "corsheaders",
     "django.contrib.postgres",
     "apps.core",
     "apps.sync",
@@ -83,6 +98,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Must precede CommonMiddleware: a redirect issued before the CORS headers
+    # are attached reaches the browser without them, and the request fails as a
+    # CORS error that looks nothing like a redirect.
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

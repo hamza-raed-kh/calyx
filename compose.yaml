@@ -50,6 +50,11 @@ x-django: &django
   # https://tasks.example.ts.net
   DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
   ALLOW_SIGNUPS: ${ALLOW_SIGNUPS:-false}
+  # Only when the web app is served from a DIFFERENT origin than this API.
+  # Full origins with scheme, comma separated:
+  #   CORS_ALLOWED_ORIGINS=https://calyx.example.ts.net
+  # Empty is correct when both are behind one hostname.
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
   # Unset on purpose: the API generates a key on first boot and persists it in
   # the apistate volume, so this file carries no published secret.
   DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}

@@ -14,7 +14,7 @@ class TasksApp extends ConsumerWidget {
     final database = ref.watch(databaseProvider);
 
     return MaterialApp.router(
-      title: 'Tasks',
+      title: 'calyx',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

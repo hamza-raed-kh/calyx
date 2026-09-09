@@ -33,17 +33,28 @@ class SettingsScreen extends ConsumerWidget {
                   _Field(
                     label: 'API address',
                     value: value.baseUrl,
-                    hint: 'https://tasks.your-tailnet.ts.net/api/v1',
+                    hint: 'https://calyx.example.ts.net/api/v1',
                     onSave: (input) => _save(ref, 'api_base_url', input),
+                  ),
+                  const _Explainer(
+                    'The full URL ending in /api/v1. The default only works '
+                    'when this page is served from the same host as the API.',
                   ),
                   const SizedBox(height: Spacing.md),
                   _Field(
                     label: 'API token',
                     value: value.token ?? '',
                     obscure: true,
-                    hint: 'from manage.py drf_create_token',
+                    hint: 'a long random string',
                     onSave: (input) => _save(ref, 'api_token', input),
                   ),
+                  const _Explainer(
+                    'Generate one on the server:\n'
+                    'make superuser        (once)\n'
+                    'make token USER=<you>',
+                  ),
+                  const SizedBox(height: Spacing.md),
+                  const _ConnectionTest(),
                 ],
               ),
             ),
@@ -308,6 +319,112 @@ class _FieldState extends State<_Field> {
           icon: const Icon(Icons.check),
           tooltip: 'Save',
         ),
+      ],
+    );
+  }
+}
+
+
+/// Short grey note under a field. Setup is the one moment the app cannot
+/// assume the reader already knows what it wants from them.
+class _Explainer extends StatelessWidget {
+  const _Explainer(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.xs),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 11, color: DarkPalette.textMuted, height: 1.4),
+      ),
+    );
+  }
+}
+
+/// Says whether the address and token actually work, and why not when they do
+/// not. Without it a misconfiguration is indistinguishable from an empty
+/// database: both look like a blank Today screen.
+class _ConnectionTest extends ConsumerStatefulWidget {
+  const _ConnectionTest();
+
+  @override
+  ConsumerState<_ConnectionTest> createState() => _ConnectionTestState();
+}
+
+class _ConnectionTestState extends ConsumerState<_ConnectionTest> {
+  String? _result;
+  Color _tone = DarkPalette.textMuted;
+  bool _busy = false;
+
+  Future<void> _run() async {
+    setState(() {
+      _busy = true;
+      _result = null;
+    });
+
+    final api = ref.read(apiClientProvider);
+    String message;
+    Color tone;
+    try {
+      final health = await api.get('/health/');
+      if (health.status == 0) {
+        message = 'Could not reach the server. Check the address, and that it '
+            'is HTTPS and resolvable from this device.';
+        tone = DarkPalette.danger;
+      } else if (health.status == 404) {
+        message = 'Reached a server, but no API there. Does the address end in /api/v1?';
+        tone = DarkPalette.danger;
+      } else if (!health.ok) {
+        message = 'Server answered HTTP ${health.status}.';
+        tone = DarkPalette.danger;
+      } else {
+        // Health is deliberately unauthenticated, so a second, authenticated
+        // call is the only thing that actually proves the token.
+        final pull = await api.get('/sync/pull/', query: {'cursor': 0, 'limit': 1});
+        if (pull.status == 401 || pull.status == 403) {
+          message = 'Server reachable, but the token was rejected.';
+          tone = DarkPalette.danger;
+        } else if (!pull.ok) {
+          message = 'Server reachable; sync returned HTTP ${pull.status}.';
+          tone = DarkPalette.warning;
+        } else {
+          message = 'Connected and authenticated.';
+          tone = DarkPalette.success;
+        }
+      }
+    } on Object catch (error) {
+      message = 'Failed: $error';
+      tone = DarkPalette.danger;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _result = message;
+      _tone = tone;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _run,
+          icon: _busy
+              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.network_check, size: 18),
+          label: const Text('Test connection'),
+        ),
+        if (_result != null)
+          Padding(
+            padding: const EdgeInsets.only(top: Spacing.sm),
+            child: Text(_result!, style: TextStyle(fontSize: 12, color: _tone)),
+          ),
       ],
     );
   }
