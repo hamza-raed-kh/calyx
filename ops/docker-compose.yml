@@ -46,10 +46,14 @@ services:
       context: ../backend
       target: dev
     profiles: ["test"]
+    # Run as the invoking user so files this service generates -- migrations
+    # above all -- are not left root-owned in the working tree.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     env_file: .env
     environment:
       POSTGRES_HOST: db
       DJANGO_DEBUG: "true"
+      HOME: /tmp
     volumes:
       - ../backend:/app
     depends_on:

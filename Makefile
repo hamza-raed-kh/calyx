@@ -1,5 +1,7 @@
 # Convenience wrappers around docker compose. All commands are run from the
 # repo root; compose itself lives in ops/.
+export HOST_UID := $(shell id -u)
+export HOST_GID := $(shell id -g)
 COMPOSE := docker compose -f ops/docker-compose.yml
 
 .PHONY: help up down restart logs ps build migrate makemigrations superuser shell test lint fmt check backup restore-check web-build web-deploy web-check flutter

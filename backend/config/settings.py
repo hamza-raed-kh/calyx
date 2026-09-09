@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.postgres",
     "apps.core",
     "apps.sync",
+    "apps.tasks",
 ]
 
 MIDDLEWARE = [
