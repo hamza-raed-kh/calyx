@@ -30,10 +30,44 @@ def agenda(request):
     settings = AppSettings.get()
     generator = OccurrenceGenerator(settings)
     now = timezone.now()
-
     day = _parse_date(request.query_params.get("date"), generator, now)
-    previous = day - timedelta(days=1)
+    return Response(_agenda_for(day, generator, settings, now))
 
+
+@api_view(["GET"])
+def horizon(request):
+    """Expanded occurrences for a run of days, for the client to cache.
+
+    The device never reimplements the generator: DST resolution, rollover
+    assignment, prayer-window chaining and high-latitude fallback exist once, on
+    the server, and the wire format is literally that function's output. A
+    second implementation in Dart would eventually disagree by a minute, and the
+    same log would read on-time on the phone and late on the server.
+    """
+    settings = AppSettings.get()
+    generator = OccurrenceGenerator(settings)
+    now = timezone.now()
+
+    start = _parse_date(request.query_params.get("from"), generator, now)
+    days = _parse_horizon(request.query_params.get("days"), settings)
+    end = start + timedelta(days=days - 1)
+
+    generator.preload_prayer_times(start - timedelta(days=1), end)
+    return Response(
+        {
+            "from": start,
+            "to": end,
+            "server_time": now,
+            "days": [
+                _agenda_for(start + timedelta(days=offset), generator, settings, now)
+                for offset in range(days)
+            ],
+        }
+    )
+
+
+def _agenda_for(day, generator, settings, now) -> dict:
+    previous = day - timedelta(days=1)
     generator.preload_prayer_times(previous, day)
     habits = list(Habit.objects.live().prefetch_related("versions__slots", "components"))
 
@@ -68,8 +102,7 @@ def agenda(request):
     expected = [row for row in today_rows if row["requirement"] == Requirement.REQUIRED]
     satisfied_count = sum(1 for row in expected if row["progress"]["satisfied"])
 
-    return Response(
-        {
+    return {
             "habit_day": day,
             "day_start": day_start,
             "day_end": day_end,
@@ -85,7 +118,6 @@ def agenda(request):
                 "perfect": bool(expected) and satisfied_count == len(expected),
             },
         }
-    )
 
 
 @api_view(["POST"])
@@ -100,6 +132,16 @@ def create_log(request):
     occurrence_id = data.get("occurrence_id")
     if not occurrence_id:
         raise ValidationError({"occurrence_id": "required"})
+
+    # Idempotency. An offline log is queued with a client-generated id and may
+    # be delivered more than once -- a retry after a response was lost, say.
+    # Returning the existing row makes that free, and is why habit logging can
+    # be queued at all rather than needing an online round trip.
+    supplied_id = data.get("id")
+    if supplied_id:
+        existing = HabitLog.objects.filter(pk=supplied_id).first()
+        if existing is not None:
+            return Response(HabitLogSerializer(existing).data, status=200)
 
     try:
         occurrence = log_service.resolve(occurrence_id)
@@ -126,6 +168,7 @@ def create_log(request):
             note=data.get("note", ""),
             entry_mode=data.get("entry_mode", EntryMode.LIVE),
             client_ts=_parse_dt(data.get("client_ts")),
+            log_id=supplied_id or None,
         )
     except DjangoValidationError as exc:
         raise ValidationError({"detail": exc.messages}) from exc
@@ -251,6 +294,18 @@ def _parse_dt(value):
         return None
     parsed = timezone.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     return parsed if parsed.tzinfo else timezone.make_aware(parsed)
+
+
+def _parse_horizon(value, settings) -> int:
+    if not value:
+        return settings.prefetch_horizon_days
+    try:
+        days = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError({"days": "must be an integer"}) from exc
+    if not 1 <= days <= 120:
+        raise ValidationError({"days": "must be between 1 and 120"})
+    return days
 
 
 def _parse_windows(value) -> tuple[int, ...]:

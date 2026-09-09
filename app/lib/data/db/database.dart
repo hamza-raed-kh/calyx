@@ -59,6 +59,101 @@ class SyncStates extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+// --- mirrored server entities ------------------------------------------------
+// Only what the UI actually renders or mutates offline. Locations, prayer times,
+// schedule versions and slots are deliberately NOT mirrored: the client consumes
+// the agenda those produce rather than re-deriving it, so holding the inputs
+// locally would buy nothing and invite a second, divergent implementation.
+
+mixin Synced on Table {
+  TextColumn get id => text()();
+  IntColumn get rowVersion => integer().nullable()();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Habits extends Table with Synced {
+  TextColumn get key => text()();
+  TextColumn get name => text()();
+  TextColumn get icon => text().withDefault(const Constant(''))();
+  TextColumn get color => text().withDefault(const Constant(''))();
+  TextColumn get componentMode => text().withDefault(const Constant('NONE'))();
+  BoolColumn get requiresProject =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get allowsProject =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  DateTimeColumn get archivedAt => dateTime().nullable()();
+}
+
+class HabitComponents extends Table with Synced {
+  TextColumn get habitId => text()();
+  TextColumn get key => text()();
+  TextColumn get label => text()();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+}
+
+class HabitLogs extends Table with Synced {
+  TextColumn get habitId => text()();
+  TextColumn get slotKey => text()();
+  TextColumn get habitDay => text()();
+  DateTimeColumn get occurredAt => dateTime()();
+  TextColumn get componentId => text().nullable()();
+  TextColumn get projectId => text().nullable()();
+  RealColumn get value => real().nullable()();
+  TextColumn get unit => text().withDefault(const Constant(''))();
+  IntColumn get durationSeconds => integer().nullable()();
+  TextColumn get note => text().withDefault(const Constant(''))();
+  TextColumn get status => text().withDefault(const Constant('UNKNOWN'))();
+
+  /// True until the server has echoed it back. Drives the "pending" affordance.
+  BoolColumn get isPending => boolean().withDefault(const Constant(false))();
+}
+
+class Projects extends Table with Synced {
+  TextColumn get name => text()();
+  TextColumn get color => text().withDefault(const Constant(''))();
+  TextColumn get icon => text().withDefault(const Constant(''))();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  DateTimeColumn get archivedAt => dateTime().nullable()();
+}
+
+class Tags extends Table with Synced {
+  TextColumn get name => text()();
+  TextColumn get color => text().withDefault(const Constant(''))();
+}
+
+class Tasks extends Table with Synced {
+  TextColumn get projectId => text().nullable()();
+  TextColumn get parentId => text().nullable()();
+  TextColumn get title => text()();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  IntColumn get priority => integer().withDefault(const Constant(0))();
+  DateTimeColumn get dueAt => dateTime().nullable()();
+  TextColumn get scheduledFor => text().nullable()();
+  DateTimeColumn get completedAt => dateTime().nullable()();
+  TextColumn get recurrence => text().withDefault(const Constant(''))();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get isPending => boolean().withDefault(const Constant(false))();
+}
+
+/// Server-expanded occurrences for one habit-day, cached verbatim.
+///
+/// Stored as the raw payload rather than shredded into columns: the client is a
+/// consumer of the generator's output, and reshaping it here would be the first
+/// step toward reimplementing it.
+class AgendaDays extends Table {
+  TextColumn get day => text()();
+  TextColumn get payload => text()();
+  DateTimeColumn get fetchedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {day};
+}
+
 /// Small key/value store for local-only facts: the install's client id, the
 /// last seen schema version, UI preferences that never sync.
 class AppMeta extends Table {
@@ -70,7 +165,20 @@ class AppMeta extends Table {
 }
 
 @DriftDatabase(
-  tables: [OutboxEntries, DeadLetters, ConflictLog, SyncStates, AppMeta],
+  tables: [
+    OutboxEntries,
+    DeadLetters,
+    ConflictLog,
+    SyncStates,
+    AppMeta,
+    Habits,
+    HabitComponents,
+    HabitLogs,
+    Projects,
+    Tags,
+    Tasks,
+    AgendaDays,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);

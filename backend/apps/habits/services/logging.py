@@ -80,6 +80,7 @@ def record(
     note: str = "",
     entry_mode: str = EntryMode.LIVE,
     client_ts: datetime | None = None,
+    log_id: str | None = None,
     settings: AppSettings | None = None,
     now: datetime | None = None,
 ) -> HabitLog:
@@ -103,6 +104,7 @@ def record(
         raise ValidationError(f"habit {habit.key!r} requires a project")
 
     return HabitLog.objects.create(
+        **({"id": log_id} if log_id else {}),
         habit=habit,
         slot_key=occurrence.slot_key,
         # From the occurrence, never derived independently from wall time. That

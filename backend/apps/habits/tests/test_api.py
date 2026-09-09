@@ -206,3 +206,44 @@ def test_heatmap_returns_cells(api, seeded):
 def test_heatmap_rejects_an_inverted_range(api, seeded):
     response = api.get(reverse("habits:heatmap"), {"from": "2026-06-01", "to": "2026-01-01"})
     assert response.status_code == 400
+
+
+# --- horizon -----------------------------------------------------------------
+
+
+def test_horizon_expands_a_run_of_days(api, seeded):
+    body = api.get(reverse("habits:horizon"), {"days": 5}).json()
+
+    assert len(body["days"]) == 5
+    assert [d["habit_day"] for d in body["days"]] == sorted(d["habit_day"] for d in body["days"])
+    assert body["days"][0]["occurrences"], "each day must carry expanded occurrences"
+
+
+def test_horizon_carries_notification_times_so_the_device_need_not_compute_them(api, seeded):
+    body = api.get(reverse("habits:horizon"), {"days": 2}).json()
+    prayers = [
+        row
+        for day in body["days"]
+        for row in day["occurrences"]
+        if row["habit"]["key"] == "prayer"
+    ]
+    assert prayers and all(row["notify_at"] for row in prayers)
+
+
+@pytest.mark.parametrize("bad", ["0", "121", "abc"])
+def test_horizon_rejects_an_unreasonable_span(api, seeded, bad):
+    assert api.get(reverse("habits:horizon"), {"days": bad}).status_code == 400
+
+
+def test_a_client_supplied_log_id_makes_logging_idempotent(api, seeded):
+    """An offline log is queued with a client id and may arrive twice."""
+    row = today_for(api, "gaming")
+    log_id = "018f0000-0000-7000-8000-0000000f00d0"
+
+    first = log(api, occurrence_id=row["id"], id=log_id)
+    second = log(api, occurrence_id=row["id"], id=log_id)
+
+    assert first.status_code == 201
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"] == log_id
+    assert HabitLog.objects.filter(habit__key="gaming").count() == 1
