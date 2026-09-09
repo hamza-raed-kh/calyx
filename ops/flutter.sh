@@ -19,8 +19,8 @@ WORKDIR="${FLUTTER_WORKDIR:-/work/app}"
 
 docker run --rm \
     -v "$REPO:/work" \
-    -v tasks_pub_cache:/root/.pub-cache \
-    -v tasks_gradle_cache:/root/.gradle \
+    -v calyx_pub_cache:/root/.pub-cache \
+    -v calyx_gradle_cache:/root/.gradle \
     -e PUB_CACHE=/root/.pub-cache \
     -e HOME=/root \
     -w "$WORKDIR" \

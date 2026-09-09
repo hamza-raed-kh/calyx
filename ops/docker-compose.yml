@@ -1,4 +1,4 @@
-name: tasks
+name: calyx
 
 services:
   db:
@@ -18,7 +18,7 @@ services:
       start_period: 10s
 
   api:
-    image: ${API_IMAGE:-tasks-api:local}
+    image: ${API_IMAGE:-calyx-api:local}
     build:
       context: ../backend
       target: runtime
@@ -41,7 +41,7 @@ services:
   # Runs the backend suite against the same Python and Postgres as production.
   #   docker compose --profile test run --rm test
   test:
-    image: tasks-api:dev
+    image: calyx-api:dev
     build:
       context: ../backend
       target: dev
@@ -64,7 +64,7 @@ services:
   # exits. Staged then symlink-swapped so an interrupted copy can never leave a
   # half-written bundle being served.
   web:
-    image: ${WEB_IMAGE:-tasks-web:local}
+    image: ${WEB_IMAGE:-calyx-web:local}
     build:
       context: ../app
       dockerfile: Dockerfile.web

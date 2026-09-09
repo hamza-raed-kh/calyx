@@ -31,7 +31,7 @@
 # IndexedDB, silently, and offline data stops surviving a refresh.
 # ---------------------------------------------------------------------------
 
-name: tasks
+name: calyx
 
 x-postgres: &postgres
   POSTGRES_DB: ${POSTGRES_DB:-tasks}
@@ -71,7 +71,7 @@ services:
   # Runs to completion before the API starts, so a new image can never boot
   # against an old schema.
   migrate:
-    image: ghcr.io/hamza-raed-kh/tasks-api:main
+    image: ghcr.io/hamza-raed-kh/calyx-api:main
     restart: "no"
     environment: *django
     volumes:
@@ -82,7 +82,7 @@ services:
     command: ["python", "manage.py", "migrate", "--noinput"]
 
   api:
-    image: ghcr.io/hamza-raed-kh/tasks-api:main
+    image: ghcr.io/hamza-raed-kh/calyx-api:main
     restart: unless-stopped
     environment: *django
     ports:
@@ -112,7 +112,7 @@ services:
   # being served, and the link resolves under whichever path each container
   # mounts the volume at.
   web-bundle:
-    image: ghcr.io/hamza-raed-kh/tasks-web:main
+    image: ghcr.io/hamza-raed-kh/calyx-web:main
     restart: "no"
     volumes:
       - web_bundle:/out

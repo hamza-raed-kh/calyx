@@ -1,4 +1,4 @@
-# tasks
+# calyx
 
 Personal task and habit tracker. Django REST API plus a Flutter client (web,
 Android, Linux desktop), self-hosted on a home server over Tailscale.

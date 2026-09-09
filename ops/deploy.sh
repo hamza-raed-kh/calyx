@@ -20,8 +20,8 @@ echo "==> backing up before touching anything"
 
 [[ -f .env.image ]] && cp -f .env.image .env.image.prev
 cat > .env.image <<EOT
-API_IMAGE=ghcr.io/${OWNER}/tasks-api:${TAG}
-WEB_IMAGE=ghcr.io/${OWNER}/tasks-web:${TAG}
+API_IMAGE=ghcr.io/${OWNER}/calyx-api:${TAG}
+WEB_IMAGE=ghcr.io/${OWNER}/calyx-web:${TAG}
 EOT
 set -a; source .env.image; set +a
 
