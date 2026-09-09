@@ -102,9 +102,9 @@ jobs:
       - run: flutter build linux --release
 
       - name: Package
-        run: tar czf "tasks-linux-x64-${GITHUB_REF_NAME}.tar.gz" -C build/linux/x64/release bundle
+        run: tar czf "calyx-linux-x64-${GITHUB_REF_NAME}.tar.gz" -C build/linux/x64/release bundle
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: app/tasks-linux-x64-*.tar.gz
+          files: app/calyx-linux-x64-*.tar.gz
           fail_on_unmatched_files: true
