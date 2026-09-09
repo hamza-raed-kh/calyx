@@ -72,13 +72,10 @@ jobs:
         working-directory: backend
 
   # --- Flutter jobs ----------------------------------------------------------
-  # `hashFiles` returns an empty string when nothing matches, so these skip
-  # cleanly until the app is scaffolded rather than failing red.
 
   app-analyze:
     name: App analyze
     runs-on: ubuntu-latest
-    if: hashFiles('app/pubspec.yaml') != ''
     defaults:
       run:
         working-directory: app
@@ -103,7 +100,6 @@ jobs:
   app-test:
     name: App tests
     runs-on: ubuntu-latest
-    if: hashFiles('app/pubspec.yaml') != ''
     defaults:
       run:
         working-directory: app
@@ -119,7 +115,6 @@ jobs:
   drift-pin-check:
     name: Drift pin check
     runs-on: ubuntu-latest
-    if: hashFiles('app/pubspec.yaml') != ''
     steps:
       - uses: actions/checkout@v4
       # sqlite3.wasm and drift_worker.js are attached to the drift GitHub release
@@ -142,3 +137,14 @@ jobs:
             [ -f "$f" ] || { echo "::error::missing $f"; missing=1; }
           done
           exit $missing
+
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # A malformed workflow fails as a startup error with no jobs and no logs,
+      # which is close to undebuggable from the Actions UI. Catch it in a job
+      # that does produce logs.
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color
