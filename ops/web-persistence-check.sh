@@ -8,12 +8,16 @@
 # headers and everything still "works", it just quietly stops being durable.
 #
 #   ./ops/web-persistence-check.sh                      # default https://localhost/
-#   ./ops/web-persistence-check.sh https://tasks.x.ts.net/
-#   EXPECT_TIER=bestEffort ./ops/web-persistence-check.sh ...
+#   ./ops/web-persistence-check.sh https://calyx.x.ts.net/
+#   EXPECT_TIER=durable ./ops/web-persistence-check.sh ...   # isolated origins
+#
+# bestEffort is the expected default: cross-origin isolation is off, because
+# enabling it breaks Firefox's storage worker. Pass EXPECT_TIER=durable only
+# when you have deliberately turned isolation on.
 set -euo pipefail
 
 TARGET="${1:-https://localhost/}"
-EXPECT_TIER="${EXPECT_TIER:-durable}"
+EXPECT_TIER="${EXPECT_TIER:-bestEffort}"
 CHROME_IMAGE="${CHROME_IMAGE:-chromedp/headless-shell:latest}"
 PORT="${CDP_PORT:-9222}"
 NAME="web-persistence-check-$$"

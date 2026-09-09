@@ -69,16 +69,26 @@ make check              # everything CI runs
 ### Why `make web-check` exists
 
 Drift's web backend never throws. It degrades OPFS → IndexedDB → memory
-depending on the browser and the response headers, and reaching OPFS on Chrome
-requires the page to be cross-origin isolated by the COOP/COEP headers in
-`ops/Caddyfile`. Delete those headers and everything still "works" — it just
-quietly stops being durable, and a refresh eats the outbox. Measured:
+depending on the browser and the response headers, so a storage problem is
+silent: everything still "works" until a refresh eats the outbox.
 
-| | With COOP/COEP | Without |
+There is a genuine trade-off here, and it is why cross-origin isolation is
+**off by default**:
+
+| Isolation | Chromium | Firefox |
 |---|---|---|
-| `crossOriginIsolated` | `true` | `false` |
-| storage | `opfsLocks` | `sharedIndexedDb` |
-| tier | durable | best effort |
+| off (default) | `sharedIndexedDb` — persists, browser may evict | works |
+| on | `opfsLocks` — durable | **hangs** |
+
+Firefox's storage backend needs a SharedWorker, and Firefox does not allow
+SharedWorkers in a cross-origin-isolated context. So enabling isolation buys
+better durability on Chromium and leaves Firefox waiting forever on a database
+that never opens — every screen that touches data simply freezes.
+
+Working in every browser beats a better storage tier in one. If you only ever
+use a Chromium browser, set `COOP_VALUE=same-origin` and
+`COEP_VALUE=require-corp` on the web container and check it with
+`EXPECT_TIER=durable ./ops/web-persistence-check.sh <url>`.
 
 ## Deploying anywhere: `compose.yaml`
 

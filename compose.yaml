@@ -147,9 +147,24 @@ services:
       # Set the absolute URL when they are on different subdomains, e.g.
       #   API_BASE_URL=https://api-calyx.example.ts.net/api/v1
       API_BASE_URL: ${API_BASE_URL:-/api/v1}
-      # Substitute ONLY that variable: nginx configs are full of $$uri and
-      # friends, and envsubst would happily eat them all.
-      NGINX_ENVSUBST_FILTER: API_BASE_URL
+
+      # Cross-origin isolation. OFF by default, and that default is deliberate.
+      #
+      # Turning it on lets Chromium use OPFS with locks (durable storage).
+      # It also makes SharedWorkers unavailable in Firefox, which is the path
+      # Firefox's storage backend needs -- so an isolated origin can leave
+      # Firefox hanging on a database that never opens.
+      #
+      # off (default): works everywhere. Chromium falls back to IndexedDB,
+      #                which persists but the browser may evict it.
+      # on:            set COOP=same-origin and COEP=require-corp. Best
+      #                durability on Chromium; expect Firefox to break.
+      COOP_VALUE: ${COOP_VALUE:-unsafe-none}
+      COEP_VALUE: ${COEP_VALUE:-unsafe-none}
+
+      # Substitute ONLY these: nginx configs are full of $$uri and friends, and
+      # envsubst would happily eat them all.
+      NGINX_ENVSUBST_FILTER: (API_BASE_URL|COOP_VALUE|COEP_VALUE)
     volumes:
       - web_bundle:/srv:ro
     configs:
@@ -174,8 +189,8 @@ configs:
           # isolation headers are repeated in every location that sets a header
           # of its own. Dropping them would silently downgrade browser storage.
 
-          add_header Cross-Origin-Opener-Policy "same-origin" always;
-          add_header Cross-Origin-Embedder-Policy "require-corp" always;
+          add_header Cross-Origin-Opener-Policy "${COOP_VALUE}" always;
+          add_header Cross-Origin-Embedder-Policy "${COEP_VALUE}" always;
           add_header Cross-Origin-Resource-Policy "same-origin" always;
           add_header X-Content-Type-Options "nosniff" always;
           add_header Referrer-Policy "no-referrer" always;
@@ -186,8 +201,8 @@ configs:
           # The entry point and service worker must never be cached, or the app
           # pins itself to a stale build and no amount of reloading helps.
           location ~ ^/(index\.html|flutter_service_worker\.js|version\.json)$ {
-              add_header Cross-Origin-Opener-Policy "same-origin" always;
-              add_header Cross-Origin-Embedder-Policy "require-corp" always;
+              add_header Cross-Origin-Opener-Policy "${COOP_VALUE}" always;
+              add_header Cross-Origin-Embedder-Policy "${COEP_VALUE}" always;
               add_header Cross-Origin-Resource-Policy "same-origin" always;
               add_header X-Content-Type-Options "nosniff" always;
               add_header Cache-Control "no-cache, must-revalidate" always;
@@ -196,16 +211,16 @@ configs:
           location ~ \.wasm$ {
               types { application/wasm wasm; }
               default_type application/wasm;
-              add_header Cross-Origin-Opener-Policy "same-origin" always;
-              add_header Cross-Origin-Embedder-Policy "require-corp" always;
+              add_header Cross-Origin-Opener-Policy "${COOP_VALUE}" always;
+              add_header Cross-Origin-Embedder-Policy "${COEP_VALUE}" always;
               add_header Cross-Origin-Resource-Policy "same-origin" always;
               add_header X-Content-Type-Options "nosniff" always;
               add_header Cache-Control "public, max-age=31536000, immutable" always;
           }
 
           location ~ ^/(assets|canvaskit)/ {
-              add_header Cross-Origin-Opener-Policy "same-origin" always;
-              add_header Cross-Origin-Embedder-Policy "require-corp" always;
+              add_header Cross-Origin-Opener-Policy "${COOP_VALUE}" always;
+              add_header Cross-Origin-Embedder-Policy "${COEP_VALUE}" always;
               add_header Cross-Origin-Resource-Policy "same-origin" always;
               add_header X-Content-Type-Options "nosniff" always;
               add_header Cache-Control "public, max-age=31536000, immutable" always;

@@ -9,17 +9,19 @@
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
-	# Cross-origin isolation. NOT cosmetic: without COEP: require-corp, drift's
-	# WASM storage silently degrades from OPFS to unsafe IndexedDB on Chrome,
-	# which loses cross-tab safety and durability. The offline story depends on
-	# these two headers being present.
+	# Cross-origin isolation, OFF by default.
 	#
-	# Consequence: every subresource needs a CORP/CORS header. Everything here
-	# is same-origin so it works -- but the first remote <link> (Google Fonts is
-	# the classic) will break the page. Bundle fonts locally.
+	# Enabling it (COOP=same-origin, COEP=require-corp) lets Chromium use OPFS
+	# with locks, which is properly durable. It also makes SharedWorkers
+	# unavailable in Firefox -- the path Firefox's storage backend needs -- so an
+	# isolated origin can leave Firefox waiting forever on a database that never
+	# opens. Working in every browser beats a better storage tier in one.
+	#
+	# If you do enable it: every subresource then needs a CORP/CORS header, and
+	# the first remote <link> (Google Fonts is the classic) will break the page.
 	header {
-		Cross-Origin-Opener-Policy "same-origin"
-		Cross-Origin-Embedder-Policy "require-corp"
+		Cross-Origin-Opener-Policy "{$COOP_VALUE:unsafe-none}"
+		Cross-Origin-Embedder-Policy "{$COEP_VALUE:unsafe-none}"
 		Cross-Origin-Resource-Policy "same-origin"
 		Referrer-Policy "no-referrer"
 		X-Content-Type-Options "nosniff"
