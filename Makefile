@@ -4,7 +4,7 @@ export HOST_UID := $(shell id -u)
 export HOST_GID := $(shell id -g)
 COMPOSE := docker compose -f ops/docker-compose.yml
 
-.PHONY: help up down restart logs ps build migrate makemigrations superuser shell test lint fmt check backup restore-check web-build web-deploy web-check flutter
+.PHONY: help up down restart logs ps build migrate makemigrations seed token superuser shell test lint fmt check backup restore-check web-build web-deploy web-check flutter
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -26,6 +26,11 @@ migrate:         ## Apply migrations
 	$(COMPOSE) run --rm api python manage.py migrate
 makemigrations:  ## Generate migrations
 	$(COMPOSE) --profile test run --rm test python manage.py makemigrations
+seed:            ## Seed the owner's habits: make seed LAT=.. LON=.. TZ=..
+	$(COMPOSE) run --rm api python manage.py seed_habits \
+		--latitude $(LAT) --longitude $(LON) --timezone $(or $(TZ),Asia/Riyadh)
+token:           ## Print an API token for USER=<username>
+	$(COMPOSE) run --rm api python manage.py drf_create_token $(USER)
 superuser:       ## Create the (single) user
 	$(COMPOSE) run --rm api python manage.py createsuperuser
 shell:           ## Django shell
